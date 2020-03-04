@@ -4,5 +4,5 @@ using namespace volcano;
 
 std::string AssetManager::getAssetPath(const std::string &relativePath)
 {
-	return std::string("..\\assets\\") + relativePath;
+	return std::string("..\\Assets\\") + relativePath;
 }
