@@ -33,7 +33,7 @@ struct Material {
 void main() {
   material.ambient = vec3(0.0f, 0.0f, 0.0f);
   material.specular = 0.5f;
-  material.shininess = 5.0f;
+  material.shininess = 5.f;
   material.diffuse = texture(texSampler, fragTexCoord).rgb;
 
   lightPos = light.pos;
@@ -53,8 +53,8 @@ void main() {
 
   // 镜面光
   vec3 viewDir = normalize(viewPos - FragPos);
-  vec3 reflectDir = reflect(-lightDir, norm);
-  float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+  vec3 halfwayDir = normalize(lightDir + viewDir);
+  float spec = pow(max(dot(norm, halfwayDir), 0), material.shininess);
   vec3 specular = lightColor * (spec * material.specular);
 
   vec3 result = ambient + diffuse + specular;
