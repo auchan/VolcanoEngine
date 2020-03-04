@@ -6,14 +6,41 @@
     <ClCompile Include="Runtime\AssetManager.cpp">
       <Filter>Runtime</Filter>
     </ClCompile>
+    <ClCompile Include="Runtime\RHI\Vulkan\VulkanUtils.cpp">
+      <Filter>Runtime\RHI\Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\RHI\Vulkan\VulkanApplication.cpp">
+      <Filter>Runtime\RHI\Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="Runtime\RHI\Vulkan\VulkanUtils.h">
+      <Filter>Runtime\RHI\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\RHI\Vulkan\VulkanApplication.h">
+      <Filter>Runtime\RHI\Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\AssetManager.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\Camera.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\Core.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Runtime">
       <UniqueIdentifier>{8d5696d0-e620-4827-8c69-c9c1611d5801}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Runtime\RHI">
+      <UniqueIdentifier>{fb78af31-8a09-4e89-9c42-c077ca90182f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Runtime\RHI\Vulkan">
+      <UniqueIdentifier>{a1f44ba0-6767-43ed-9b7d-56c7f2117fb6}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

@@ -36,8 +36,6 @@ void main() {
   material.shininess = 1.0f;
   material.diffuse = texture(texSampler, fragTexCoord).rgb;
 
-  // outColor = vec4(fragNormal, 1.0);
-
   lightPos = light.pos;
   lightColor = light.ambient;
   vec3 Normal = fragNormal;
