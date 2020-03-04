@@ -84,7 +84,7 @@ static std::vector<char> readFile(const std::string& filename)
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 	if (!file.is_open())
 	{
-		throw std::runtime_error("failed to open file!");
+		throw std::runtime_error(std::string("failed to open file: ") + filename);
 	}
 
 	size_t fileSize = static_cast<size_t>(file.tellg());
@@ -613,7 +613,7 @@ void VulkanApplication::createDescriptorSetLayout()
 void VulkanApplication::createGraphicsPipeline()
 {
 	std::vector<char> vertShaderCode = readFile(AssetManager::getAssetPath("shaders/bin/phong_shading_vert.spv"));
-	std::vector<char> fragShaderCode = readFile(AssetManager::getAssetPath("shaders/bin/phong_shading_frag.spv"));
+	std::vector<char> fragShaderCode = readFile(AssetManager::getAssetPath("shaders/bin/blinn-phong_shading_frag.spv"));
 
 	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
