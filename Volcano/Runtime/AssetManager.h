@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 namespace volcano
 {
@@ -13,5 +14,7 @@ namespace volcano
 		}
 		
 		static std::string getAssetPath(const std::string &relativePath);
+
+		static std::vector<char> readFile(const std::string& filepath);
 	};
 }

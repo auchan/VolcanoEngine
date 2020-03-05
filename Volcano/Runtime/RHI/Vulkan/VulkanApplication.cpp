@@ -1,34 +1,9 @@
 #include "VulkanApplication.h"
 
-// glm
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
-
-// glfw
-#define GLFW_INCLUDE_VULKAN
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3.h>
-
-// stb image
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
-
-// assimp
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-
 #include <iostream>
-#include <fstream>
 #include <stdexcept>
-#include <vector>
 #include <cstring>
+#include <vector>
 #include <set>
 #include <array>
 #include <unordered_map>
@@ -37,9 +12,29 @@
 #include <chrono>
 #include <functional>
 
-#include <Runtime/Core.h>
-#include <Runtime/Camera.h>
-#include <Runtime/RHI/Vulkan/VulkanUtils.h>
+// glm
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
+#define GLM_ENABLE_EXPERIMENTAL
+#include "glm/gtx/hash.hpp"
+// glfw
+#define GLFW_INCLUDE_VULKAN
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include "GLFW/glfw3.h"
+// stb image
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
+// assimp
+#include "assimp/Importer.hpp"
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
+
+#include "Runtime/Core.h"
+#include "Runtime/Camera.h"
+#include "Runtime/RHI/Vulkan/VulkanUtils.h"
 
 using namespace volcano;
 
@@ -53,7 +48,6 @@ struct std::hash<Vertex>
 			vertex.texCoord) << 1);
 	}
 };
-
 
 struct Light
 {
@@ -78,28 +72,10 @@ struct UniformBufferObject
 	Light light;
 };
 
-static std::vector<char> readFile(const std::string& filename)
-{
-	// ate 从文件尾部开始读取
-	std::ifstream file(filename, std::ios::ate | std::ios::binary);
-	if (!file.is_open())
-	{
-		throw std::runtime_error(std::string("failed to open file: ") + filename);
-	}
-
-	size_t fileSize = static_cast<size_t>(file.tellg());
-	std::vector<char> buffer(fileSize);
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-	file.close();
-	return buffer;
-}
-
-
 VulkanApplication::VulkanApplication()
 	: camera(glm::vec3(30.f, 0.f, 10.f)
-	, glm::vec3(0.0f, 0.0f, 1.0f), -90, 0)
-	, swapChainImageFormat(VK_FORMAT_UNDEFINED)
+	         , glm::vec3(0.0f, 0.0f, 1.0f), -90, 0)
+	  , swapChainImageFormat(VK_FORMAT_UNDEFINED)
 {
 }
 
@@ -612,11 +588,8 @@ void VulkanApplication::createDescriptorSetLayout()
 
 void VulkanApplication::createGraphicsPipeline()
 {
-	std::vector<char> vertShaderCode = readFile(AssetManager::getAssetPath("shaders/bin/phong_shading_vert.spv"));
-	std::vector<char> fragShaderCode = readFile(AssetManager::getAssetPath("shaders/bin/blinn-phong_shading_frag.spv"));
-
-	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+	VkShaderModule vertShaderModule = createShaderModuleFromPath("shaders/bin/phong_shading_vert.spv");
+	VkShaderModule fragShaderModule = createShaderModuleFromPath("shaders/bin/blinn-phong_shading_frag.spv");
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -656,7 +629,7 @@ void VulkanApplication::createGraphicsPipeline()
 	viewport.maxDepth = 1.0f;
 
 	VkRect2D scissor = {};
-	scissor.offset = { 0, 0};
+	scissor.offset = {0, 0};
 	scissor.extent = swapChainExtent;
 
 	VkPipelineViewportStateCreateInfo viewportState = {};
@@ -709,7 +682,7 @@ void VulkanApplication::createGraphicsPipeline()
 	colorBlending.blendConstants[1] = 0.0f;
 	colorBlending.blendConstants[2] = 0.0f;
 	colorBlending.blendConstants[3] = 0.0f;
-	
+
 	std::array<VkDynamicState, 1> dynamicStates =
 	{
 		// VK_DYNAMIC_STATE_VIEWPORT,
@@ -776,7 +749,7 @@ void VulkanApplication::createGraphicsPipeline()
 	vkDestroyShaderModule(device, fragShaderModule, pAllocator);
 }
 
-VkShaderModule VulkanApplication::createShaderModule(const std::vector<char>& code)
+VkShaderModule VulkanApplication::createShaderModule(const std::vector<char>& code) const
 {
 	VkShaderModuleCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -789,6 +762,12 @@ VkShaderModule VulkanApplication::createShaderModule(const std::vector<char>& co
 		throw std::runtime_error("failed to create shader module!");
 	}
 	return shaderModule;
+}
+
+VkShaderModule VulkanApplication::createShaderModuleFromPath(const std::string& filepath) const
+{
+	const std::vector<char> shaderCode = AssetManager::readFile(filepath);
+	return createShaderModule(shaderCode);
 }
 
 void VulkanApplication::createFramebuffers()
@@ -843,8 +822,9 @@ void VulkanApplication::createCommandBuffers()
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
 
-	PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(
-		device, "vkCmdPushDescriptorSetKHR");
+	PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR = reinterpret_cast<PFN_vkCmdPushDescriptorSetKHR>(
+		vkGetDeviceProcAddr(
+			device, "vkCmdPushDescriptorSetKHR"));
 
 	for (size_t i = 0; i < commandBuffers.size(); ++i)
 	{
@@ -859,20 +839,20 @@ void VulkanApplication::createCommandBuffers()
 			throw std::runtime_error("failed to begin recording command buffer!");
 		}
 
-		VkRenderPassBeginInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = swapChainFramebuffers[i];
-		renderPassInfo.renderArea.offset = {0, 0};
-		renderPassInfo.renderArea.extent = swapChainExtent;
+		VkRenderPassBeginInfo renderPassBeginInfo = {};
+		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassBeginInfo.renderPass = renderPass;
+		renderPassBeginInfo.framebuffer = swapChainFramebuffers[i];
+		renderPassBeginInfo.renderArea.offset = {0, 0};
+		renderPassBeginInfo.renderArea.extent = swapChainExtent;
 
 		std::array<VkClearValue, 2> clearValues = {};
 		clearValues[0] = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
 		clearValues[1] = {{{1.0f, 0.0f}}};
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassInfo.pClearValues = clearValues.data();
+		renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassBeginInfo.pClearValues = clearValues.data();
 
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
 		VkBuffer vertexBuffers[] = {vertexBuffer};
@@ -965,7 +945,7 @@ VkFormat VulkanApplication::findDepthFormat()
 }
 
 VkFormat VulkanApplication::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
-                             VkFormatFeatureFlags features) const
+                                                VkFormatFeatureFlags features) const
 {
 	for (VkFormat format : candidates)
 	{
@@ -1035,8 +1015,9 @@ VkImage VulkanApplication::createTextureImage(const std::string& texturePath)
 	return textureImage;
 }
 
-void VulkanApplication::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-                 VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
+void VulkanApplication::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+                                    VkImageUsageFlags usage,
+                                    VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
 {
 	VkImageCreateInfo imageInfo = {};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1075,7 +1056,8 @@ void VulkanApplication::createImage(uint32_t width, uint32_t height, VkFormat fo
 	vkBindImageMemory(device, image, imageMemory, 0);
 }
 
-void VulkanApplication::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout)
+void VulkanApplication::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
+                                              VkImageLayout newLayout)
 {
 	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1403,8 +1385,9 @@ void VulkanApplication::createUniformBuffer()
 	}
 }
 
-void VulkanApplication::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
-                  VkDeviceMemory& bufferMemory)
+void VulkanApplication::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
+                                     VkBuffer& buffer,
+                                     VkDeviceMemory& bufferMemory)
 {
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

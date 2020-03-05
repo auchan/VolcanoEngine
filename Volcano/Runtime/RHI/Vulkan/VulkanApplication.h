@@ -1,8 +1,10 @@
 #pragma once
-#include <Runtime/Camera.h>
-#include <vulkan/vulkan.h>
 #include <optional>
 #include <array>
+#include <vector>
+
+#include "vulkan/vulkan.h"
+#include "Runtime/Camera.h"
 
 // forward declares
 struct GLFWwindow;
@@ -39,9 +41,15 @@ namespace volcano
 			return pos == other.pos && texCoord == other.texCoord && color == other.color && normal == other.normal;
 		}
 
+	
+		/**
+		 * \brief 在顶点buffer绑定数组中的索引
+		 */
+		const static uint32_t BINDING_INDEX = 0;
+
 		static VkVertexInputBindingDescription getBindingDescription() {
 			VkVertexInputBindingDescription bindingDescription = {};
-			bindingDescription.binding = 0;
+			bindingDescription.binding = BINDING_INDEX;
 			bindingDescription.stride = sizeof(Vertex);
 			bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
@@ -53,25 +61,25 @@ namespace volcano
 
 			uint32_t location = 0;
 			VkVertexInputAttributeDescription* pAttributeDescription = &attributeDescriptions[location];
-			pAttributeDescription->binding = 0;
+			pAttributeDescription->binding = BINDING_INDEX;
 			pAttributeDescription->location = location;
 			pAttributeDescription->format = VK_FORMAT_R32G32B32_SFLOAT;
 			pAttributeDescription->offset = offsetof(Vertex, pos);
 
 			pAttributeDescription = &attributeDescriptions[++location];
-			pAttributeDescription->binding = 0;
+			pAttributeDescription->binding = BINDING_INDEX;
 			pAttributeDescription->location = location;
 			pAttributeDescription->format = VK_FORMAT_R32G32B32_SFLOAT;
 			pAttributeDescription->offset = offsetof(Vertex, normal);
 
 			pAttributeDescription = &attributeDescriptions[++location];
-			pAttributeDescription->binding = 0;
+			pAttributeDescription->binding = BINDING_INDEX;
 			pAttributeDescription->location = location;
 			pAttributeDescription->format = VK_FORMAT_R32G32B32_SFLOAT;
 			pAttributeDescription->offset = offsetof(Vertex, color);
 
 			pAttributeDescription = &attributeDescriptions[++location];
-			pAttributeDescription->binding = 0;
+			pAttributeDescription->binding = BINDING_INDEX;
 			pAttributeDescription->location = location;
 			pAttributeDescription->format = VK_FORMAT_R32G32_SFLOAT;
 			pAttributeDescription->offset = offsetof(Vertex, texCoord);
@@ -128,7 +136,9 @@ namespace volcano
 
 		void createGraphicsPipeline();
 
-		VkShaderModule createShaderModule(const std::vector<char>& code);
+		VkShaderModule createShaderModule(const std::vector<char>& code) const;
+
+		VkShaderModule createShaderModuleFromPath(const std::string& filepath) const;
 
 		void createFramebuffers();
 
