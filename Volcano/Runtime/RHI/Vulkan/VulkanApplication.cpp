@@ -709,16 +709,16 @@ void VulkanApplication::createGraphicsPipeline()
 	colorBlending.blendConstants[1] = 0.0f;
 	colorBlending.blendConstants[2] = 0.0f;
 	colorBlending.blendConstants[3] = 0.0f;
-
-	VkDynamicState dynamicStates[] =
+	
+	std::array<VkDynamicState, 1> dynamicStates =
 	{
-		VK_DYNAMIC_STATE_VIEWPORT,
+		// VK_DYNAMIC_STATE_VIEWPORT,
 		VK_DYNAMIC_STATE_LINE_WIDTH
 	};
 	VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
 	dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	dynamicStateInfo.dynamicStateCount = 2;
-	dynamicStateInfo.pDynamicStates = dynamicStates;
+	dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+	dynamicStateInfo.pDynamicStates = dynamicStates.data();
 
 	VkPushConstantRange pushConstantRange = {};
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -759,7 +759,7 @@ void VulkanApplication::createGraphicsPipeline()
 	pipelineInfo.pMultisampleState = &multisampling;
 	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = VK_NULL_HANDLE;
+	pipelineInfo.pDynamicState = &dynamicStateInfo;
 	pipelineInfo.layout = pipelineLayout;
 	pipelineInfo.renderPass = renderPass;
 	pipelineInfo.subpass = 0;
@@ -932,7 +932,7 @@ void VulkanApplication::createCommandBuffers()
 			pDescriptorWriter->pBufferInfo = &lightInfo;
 
 			vkCmdPushDescriptorSetKHR(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0,
-			                          descriptorWriters.size(), descriptorWriters.data());
+			                          static_cast<uint32_t>(descriptorWriters.size()), descriptorWriters.data());
 
 			vkCmdDrawIndexed(commandBuffers[i], meshBatch.count, 1, meshBatch.startIndex, 0, 0);
 		}
