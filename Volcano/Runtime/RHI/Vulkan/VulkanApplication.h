@@ -136,6 +136,8 @@ namespace volcano
 
 		void createGraphicsPipeline();
 
+		void createGraphicsPipeline2();
+
 		VkShaderModule createShaderModule(const std::vector<char>& code) const;
 
 		VkShaderModule createShaderModuleFromPath(const std::string& filepath) const;
@@ -293,6 +295,7 @@ namespace volcano
 		VkRenderPass renderPass = VK_NULL_HANDLE;
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 		VkPipeline graphicsPipeline{};
+		VkPipeline graphicsPipeline2{};
 
 		VkCommandPool commandPool{};
 		std::vector<VkCommandBuffer> commandBuffers;
