@@ -32,7 +32,7 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 
-#include "Runtime/Core.h"
+#include "Runtime/Asset/AssetManager.h"
 #include "Runtime/Camera.h"
 #include "Runtime/RHI/Vulkan/VulkanUtils.h"
 
@@ -73,8 +73,8 @@ struct UniformBufferObject
 };
 
 VulkanApplication::VulkanApplication()
-	: camera(glm::vec3(30.f, 0.f, 10.f)
-	         , glm::vec3(0.0f, 0.0f, 1.0f), -90, 0)
+	: camera(glm::vec3(0.f, 10.f, 18.f)
+	         , coordinate::up, -180, 0)
 	  , swapChainImageFormat(VK_FORMAT_UNDEFINED)
 {
 }
@@ -527,7 +527,7 @@ void VulkanApplication::createRenderPass()
 	testPass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	testPass.colorAttachmentCount = 1;
 	testPass.pColorAttachments = &colorAttachmentRef;
-	testPass.pDepthStencilAttachment = VK_NULL_HANDLE;
+	testPass.pDepthStencilAttachment = &depthAttachmentRef;
 
 	std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
 	VkRenderPassCreateInfo renderPassInfo = {};
@@ -845,9 +845,9 @@ void VulkanApplication::createGraphicsPipeline2()
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
 		| VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	colorBlendAttachment.blendEnable = VK_FALSE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorBlendAttachment.blendEnable = VK_TRUE;
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
 	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
@@ -894,7 +894,7 @@ void VulkanApplication::createGraphicsPipeline2()
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil.depthTestEnable = VK_TRUE;
 	depthStencil.depthWriteEnable = VK_TRUE;
-	depthStencil.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.minDepthBounds = 0.0f;
 	depthStencil.maxDepthBounds = 0.0f;
@@ -1916,16 +1916,13 @@ void VulkanApplication::updateUniformBuffer(uint32_t currentImage)
 	time = 0;
 
 	UniformBufferObject ubo = {};
-	//ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.model = glm::scale(glm::mat4(1.0f), glm::vec3(1, 1, 1)) * glm::rotate(
-		glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(
-		glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * ubo.model;
+	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	// ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * ubo.model;
 	ubo.view = camera.GetViewMatrix();
 	ubo.proj = glm::perspective(glm::radians(camera.Zoom), swapChainExtent.width / (float)swapChainExtent.height,
 	                            0.1f, 100.0f);
 	ubo.proj[1][1] *= -1;
-	ubo.light.pos = glm::vec3(30.0f, 1.0f, 10.0f);
+	ubo.light.pos = glm::vec3(10.0f, 10.0f, 20.0f);
 	ubo.light.ambient = glm::vec3(1.0f, 1.0f, 1.0f);
 	ubo.light.diffuse = glm::vec3(0.0f, 1.0f, 0.0f);
 
