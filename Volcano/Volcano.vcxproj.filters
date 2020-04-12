@@ -12,6 +12,24 @@
     <ClCompile Include="Runtime\Asset\AssetManager.cpp">
       <Filter>Runtime\Asset</Filter>
     </ClCompile>
+    <ClCompile Include="..\3rd\DearImGui\imgui.cpp">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd\DearImGui\imgui_demo.cpp">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd\DearImGui\imgui_draw.cpp">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd\DearImGui\imgui_impl_glfw.cpp">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd\DearImGui\imgui_impl_vulkan.cpp">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rd\DearImGui\imgui_widgets.cpp">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
@@ -31,6 +49,30 @@
     <ClInclude Include="Runtime\Asset\AssetManager.h">
       <Filter>Runtime\Asset</Filter>
     </ClInclude>
+    <ClInclude Include="..\3rd\DearImGui\imconfig.h">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd\DearImGui\imgui.h">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd\DearImGui\imgui_impl_glfw.h">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd\DearImGui\imgui_impl_vulkan.h">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd\DearImGui\imgui_internal.h">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd\DearImGui\imstb_rectpack.h">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd\DearImGui\imstb_textedit.h">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rd\DearImGui\imstb_truetype.h">
+      <Filter>Runtime\3rd\DearImGui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Runtime">
@@ -47,6 +89,12 @@
     </Filter>
     <Filter Include="Runtime\Asset">
       <UniqueIdentifier>{06e6a78e-f8d1-4776-a9d4-35f5203e7ac2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Runtime\3rd">
+      <UniqueIdentifier>{9a7f18e5-8e99-455b-b32e-fda6515fa5b3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Runtime\3rd\DearImGui">
+      <UniqueIdentifier>{64099b4f-0a10-4c87-8eda-31b2d01ddc26}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

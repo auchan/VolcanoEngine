@@ -2,7 +2,7 @@
 #include <glm/vec3.hpp>
 
 namespace volcano::vec3
-{
+{	
 	static const glm::vec3 zero = glm::vec3(0, 0, 0);
 
 	static const glm::vec3 one = glm::vec3(1, 1, 1);

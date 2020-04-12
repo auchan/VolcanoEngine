@@ -31,6 +31,10 @@
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
+// dear imgui
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 
 #include "Runtime/Asset/AssetManager.h"
 #include "Runtime/Camera.h"
@@ -83,6 +87,7 @@ void VulkanApplication::run()
 {
 	initWindow();
 	initVulkan();
+	setupImGui();
 	mainLoop();
 	cleanup();
 }
@@ -94,7 +99,7 @@ void VulkanApplication::initWindow()
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-	window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+	window = glfwCreateWindow(WIDTH, HEIGHT, appName, nullptr, nullptr);
 	glfwSetWindowUserPointer(window, this);
 	glfwSetFramebufferSizeCallback(window, frameBufferResizeCallback);
 
@@ -130,6 +135,45 @@ void VulkanApplication::initVulkan()
 	createDescriptorSets();
 	createCommandBuffers();
 	createSyncObjects();
+}
+
+void VulkanApplication::setupImGui()
+{
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+	//ImGui::StyleColorsClassic();
+
+	QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+	
+	// Setup Platform/Renderer bindings
+	ImGui_ImplGlfw_InitForVulkan(window, true);
+	ImGui_ImplVulkan_InitInfo init_info = {};
+	init_info.Instance = instance;
+	init_info.PhysicalDevice = physicalDevice;
+	init_info.Device = device;
+	init_info.QueueFamily = indices.graphicsFamily.value();
+	init_info.Queue = graphicsQueue;
+	init_info.PipelineCache = VK_NULL_HANDLE;
+	init_info.DescriptorPool = imGuiDescriptorPool;
+	init_info.Allocator = pAllocator;
+	init_info.MinImageCount = 2;
+	init_info.ImageCount = swapChainImages.size();
+	init_info.CheckVkResultFn = checkVkResult;
+	ImGui_ImplVulkan_Init(&init_info, renderPass);
+
+	// Upload Fonts
+	// Use any command queue
+	VkCommandBuffer command_buffer = beginSingleTimeCommands();
+	ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+	endSingleTimeCommands(command_buffer);
+	ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
 void VulkanApplication::createInstance()
@@ -1002,133 +1046,6 @@ void VulkanApplication::createCommandBuffers()
 	{
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
-
-	PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR = reinterpret_cast<PFN_vkCmdPushDescriptorSetKHR>(
-		vkGetDeviceProcAddr(
-			device, "vkCmdPushDescriptorSetKHR"));
-
-	// PUSH_SET_INDEX is the set number of the descriptor set in the pipeline layout that will be updated.
-	const uint32_t PUSH_SET_INDEX = 0;
-
-	for (size_t i = 0; i < commandBuffers.size(); ++i)
-	{
-		VkCommandBufferBeginInfo beginInfo = {};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		// 在指令缓冲等待执行时，依然可以提交这一指令缓冲
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-		beginInfo.pInheritanceInfo = nullptr;
-
-		if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to begin recording command buffer!");
-		}
-
-		VkRenderPassBeginInfo renderPassBeginInfo = {};
-		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassBeginInfo.renderPass = renderPass;
-		renderPassBeginInfo.framebuffer = swapChainFramebuffers[i];
-		renderPassBeginInfo.renderArea.offset = {0, 0};
-		renderPassBeginInfo.renderArea.extent = swapChainExtent;
-
-		std::array<VkClearValue, 2> clearValues = {};
-		clearValues[0] = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-		clearValues[1] = {{{1.0f, 0.0f}}};
-		renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassBeginInfo.pClearValues = clearValues.data();
-
-		// main pass begin
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
-		VkBuffer vertexBuffers[] = {vertexBuffer};
-		VkDeviceSize offsets[] = {0};
-		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-		//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
-		//&descriptorSets[i], 0, nullptr);
-
-		vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-		                   sizeof(camera.Position), &camera.Position);
-
-		// uint32_t count = 0;
-		for (const auto meshBatch : meshBatchs)
-		{
-			// 测试一个 RenderPss 中切换绑定渲染管线，从而使用不同的shader和固定管线状态
-			// if (count % 2 == 0)
-			// {
-			// 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-			// }
-			// else
-			// {
-			// 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline2);
-			// }
-			// ++count;
-			
-			VkDescriptorBufferInfo bufferInfo = {};
-			bufferInfo.buffer = uniformBuffers[i];
-			bufferInfo.offset = 0;
-			bufferInfo.range = offsetof(UniformBufferObject, light);
-
-			VkDescriptorImageInfo imageInfo = {};
-			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView = meshBatch.imageView;
-			imageInfo.sampler = textureSampler;
-
-			VkDescriptorBufferInfo lightInfo = {};
-			lightInfo.buffer = uniformBuffers[i];
-			lightInfo.offset = offsetof(UniformBufferObject, light);
-			lightInfo.range = sizeof(Light);
-
-			std::array<VkWriteDescriptorSet, 3> descriptorWriters = {};
-			uint32_t index = 0;
-			VkWriteDescriptorSet* pDescriptorWriter = &descriptorWriters[index];
-			pDescriptorWriter->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			pDescriptorWriter->dstSet = descriptorSets[i];
-			pDescriptorWriter->dstBinding = index;
-			pDescriptorWriter->dstArrayElement = 0;
-			pDescriptorWriter->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			pDescriptorWriter->descriptorCount = 1;
-			pDescriptorWriter->pBufferInfo = &bufferInfo;
-
-			pDescriptorWriter = &descriptorWriters[++index];
-			pDescriptorWriter->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			pDescriptorWriter->dstSet = descriptorSets[i];
-			pDescriptorWriter->dstBinding = index;
-			pDescriptorWriter->dstArrayElement = 0;
-			pDescriptorWriter->descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			pDescriptorWriter->descriptorCount = 1;
-			pDescriptorWriter->pImageInfo = &imageInfo;
-
-			pDescriptorWriter = &descriptorWriters[++index];
-			pDescriptorWriter->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			pDescriptorWriter->dstSet = descriptorSets[i];
-			pDescriptorWriter->dstBinding = index;
-			pDescriptorWriter->dstArrayElement = 0;
-			pDescriptorWriter->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			pDescriptorWriter->descriptorCount = 1;
-			pDescriptorWriter->pBufferInfo = &lightInfo;
-
-			vkCmdPushDescriptorSetKHR(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, PUSH_SET_INDEX,
-			                          static_cast<uint32_t>(descriptorWriters.size()), descriptorWriters.data());
-
-			vkCmdDrawIndexed(commandBuffers[i], meshBatch.count, 1, meshBatch.startIndex, 0, 0);
-		}
-		// main pass end
-
-		// test pass begin
-		vkCmdNextSubpass(commandBuffers[i], VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline2);
-		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-		vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
-		// test pass end
-		
-		vkCmdEndRenderPass(commandBuffers[i]);
-
-		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to record command buffer!");
-		}
-	}
 }
 
 void VulkanApplication::createDepthResources()
@@ -1707,6 +1624,32 @@ void VulkanApplication::createDescriptorPool()
 	{
 		throw std::runtime_error("failed to create descriptor pool!");
 	}
+
+	// Create ImGui Descriptor Pool
+	{
+		VkDescriptorPoolSize pool_sizes[] =
+		{
+			{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+			{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+		};
+		VkDescriptorPoolCreateInfo pool_info = {};
+		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
+		pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+		pool_info.pPoolSizes = pool_sizes;
+		VkResult err = vkCreateDescriptorPool(device, &pool_info, pAllocator, &imGuiDescriptorPool);
+		checkVkResult(err);
+	}
 }
 
 void VulkanApplication::createDescriptorSets()
@@ -1833,10 +1776,195 @@ void VulkanApplication::mainLoop()
 		glfwPollEvents();
 		//按键事件(onKeyEvent)无法产生连续的长按效果，因此在mainLoop中处理
 		processKey(window);
+		updateFrame();
 		drawFrame();
 	}
 
 	vkDeviceWaitIdle(device);
+}
+
+void VulkanApplication::updateFrame()
+{
+	// Start the Dear ImGui frame
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	static bool show_demo_window = true;
+	static bool show_another_window = true;
+	static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+	// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+	if (show_demo_window)
+		ImGui::ShowDemoWindow(&show_demo_window);
+
+	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+	{
+		static float f = 0.0f;
+		static int counter = 0;
+
+		ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+		ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+		ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+		ImGui::Checkbox("Another Window", &show_another_window);
+
+		ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+		ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+		if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+			counter++;
+		ImGui::SameLine();
+		ImGui::Text("counter = %d", counter);
+
+		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		ImGui::End();
+	}
+
+	// 3. Show another simple window.
+	if (show_another_window)
+	{
+		ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+		ImGui::Text("Hello from another window!");
+		if (ImGui::Button("Close Me"))
+			show_another_window = false;
+		ImGui::End();
+	}
+
+	updateCommandBuffers();
+}
+
+void VulkanApplication::updateCommandBuffers()
+{
+	// Rendering
+	ImGui::Render();
+
+	PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR = reinterpret_cast<PFN_vkCmdPushDescriptorSetKHR>(
+		vkGetDeviceProcAddr(
+			device, "vkCmdPushDescriptorSetKHR"));
+
+	// PUSH_SET_INDEX is the set number of the descriptor set in the pipeline layout that will be updated.
+	const uint32_t PUSH_SET_INDEX = 0;
+
+	VkResult err = vkResetCommandPool(device, commandPool, 0);
+	checkVkResult(err);
+
+	for (size_t i = 0; i < commandBuffers.size(); ++i)
+	{
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		// 在指令缓冲等待执行时，依然可以提交这一指令缓冲
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+		beginInfo.pInheritanceInfo = nullptr;
+
+		if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to begin recording command buffer!");
+		}
+
+		VkRenderPassBeginInfo renderPassBeginInfo = {};
+		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassBeginInfo.renderPass = renderPass;
+		renderPassBeginInfo.framebuffer = swapChainFramebuffers[i];
+		renderPassBeginInfo.renderArea.offset = { 0, 0 };
+		renderPassBeginInfo.renderArea.extent = swapChainExtent;
+
+		std::array<VkClearValue, 2> clearValues = {};
+		clearValues[0] = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
+		clearValues[1] = { {{1.0f, 0.0f}} };
+		renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassBeginInfo.pClearValues = clearValues.data();
+
+		// main pass begin
+		vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+		VkBuffer vertexBuffers[] = { vertexBuffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
+		//&descriptorSets[i], 0, nullptr);
+
+		vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+			sizeof(camera.Position), &camera.Position);
+
+		// uint32_t count = 0;
+		for (const auto meshBatch : meshBatchs)
+		{
+			// 测试一个 RenderPss 中切换绑定渲染管线，从而使用不同的shader和固定管线状态
+			// if (count % 2 == 0)
+			// {
+			// 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+			// }
+			// else
+			// {
+			// 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline2);
+			// }
+			// ++count;
+
+			VkDescriptorBufferInfo bufferInfo = {};
+			bufferInfo.buffer = uniformBuffers[i];
+			bufferInfo.offset = 0;
+			bufferInfo.range = offsetof(UniformBufferObject, light);
+
+			VkDescriptorImageInfo imageInfo = {};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo.imageView = meshBatch.imageView;
+			imageInfo.sampler = textureSampler;
+
+			VkDescriptorBufferInfo lightInfo = {};
+			lightInfo.buffer = uniformBuffers[i];
+			lightInfo.offset = offsetof(UniformBufferObject, light);
+			lightInfo.range = sizeof(Light);
+
+			std::array<VkWriteDescriptorSet, 3> descriptorWriters = {};
+			uint32_t index = 0;
+			VkWriteDescriptorSet* pDescriptorWriter = &descriptorWriters[index];
+			pDescriptorWriter->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			pDescriptorWriter->dstSet = descriptorSets[i];
+			pDescriptorWriter->dstBinding = index;
+			pDescriptorWriter->dstArrayElement = 0;
+			pDescriptorWriter->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			pDescriptorWriter->descriptorCount = 1;
+			pDescriptorWriter->pBufferInfo = &bufferInfo;
+
+			pDescriptorWriter = &descriptorWriters[++index];
+			pDescriptorWriter->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			pDescriptorWriter->dstSet = descriptorSets[i];
+			pDescriptorWriter->dstBinding = index;
+			pDescriptorWriter->dstArrayElement = 0;
+			pDescriptorWriter->descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			pDescriptorWriter->descriptorCount = 1;
+			pDescriptorWriter->pImageInfo = &imageInfo;
+
+			pDescriptorWriter = &descriptorWriters[++index];
+			pDescriptorWriter->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			pDescriptorWriter->dstSet = descriptorSets[i];
+			pDescriptorWriter->dstBinding = index;
+			pDescriptorWriter->dstArrayElement = 0;
+			pDescriptorWriter->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			pDescriptorWriter->descriptorCount = 1;
+			pDescriptorWriter->pBufferInfo = &lightInfo;
+
+			vkCmdPushDescriptorSetKHR(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, PUSH_SET_INDEX,
+				static_cast<uint32_t>(descriptorWriters.size()), descriptorWriters.data());
+
+			vkCmdDrawIndexed(commandBuffers[i], meshBatch.count, 1, meshBatch.startIndex, 0, 0);
+		}
+		// main pass end
+
+		// gui pass begin
+		vkCmdNextSubpass(commandBuffers[i], VK_SUBPASS_CONTENTS_INLINE);
+		// Record Imgui Draw Data and draw funcs into command buffer
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[i]);
+		// gui pass end
+
+		vkCmdEndRenderPass(commandBuffers[i]);
+
+		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to record command buffer!");
+		}
+	}
 }
 
 void VulkanApplication::drawFrame()
@@ -1942,6 +2070,8 @@ void VulkanApplication::updateUniformBuffer(uint32_t currentImage)
 
 void VulkanApplication::cleanup()
 {
+	cleanupImGui();
+	
 	cleanupSwapChain();
 
 	vkDestroySampler(device, textureSampler, pAllocator);
@@ -1986,6 +2116,13 @@ void VulkanApplication::cleanup()
 	glfwDestroyWindow(window);
 
 	glfwTerminate();
+}
+
+void VulkanApplication::cleanupImGui()
+{
+	ImGui_ImplVulkan_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 }
 
 void VulkanApplication::cleanupSwapChain()
@@ -2096,4 +2233,12 @@ void VulkanApplication::scrollCallback(GLFWwindow* window, double xoffset, doubl
 {
 	auto app = reinterpret_cast<VulkanApplication*>(glfwGetWindowUserPointer(window));
 	app->camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+void VulkanApplication::checkVkResult(VkResult result)
+{
+	if (result < 0)
+	{
+		throw std::runtime_error("checkVkResult: result = " + result);
+	}
 }

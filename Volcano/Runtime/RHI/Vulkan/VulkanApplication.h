@@ -99,6 +99,8 @@ namespace volcano
 		void initWindow();
 
 		void initVulkan();
+		
+		void setupImGui();
 
 		void createInstance();
 
@@ -215,12 +217,18 @@ namespace volcano
 
 		void mainLoop();
 
+		void updateFrame();
+
+		void updateCommandBuffers();
+
 		void drawFrame();
 
 		void updateUniformBuffer(uint32_t currentImage);
 
 		void cleanup();
 
+		void cleanupImGui();
+		
 		void cleanupSwapChain();
 
 		//////////////////////////////////////////////////////////////////////////
@@ -247,10 +255,14 @@ namespace volcano
 
 		static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
+		static void checkVkResult(VkResult result);
+
 		//////////////////////////////////////////////////////////////////////////
 		// variables
 		//////////////////////////////////////////////////////////////////////////
 
+		const char* appName = "Volcano Engine";
+		
 		const uint32_t WIDTH = 800;
 		const uint32_t HEIGHT = 600;
 		const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -346,5 +358,8 @@ namespace volcano
 		const std::vector<const char*> deviceExtension = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME
 		};
+
+		// ImGui
+		VkDescriptorPool imGuiDescriptorPool = VK_NULL_HANDLE;
 	};
 }
