@@ -1,6 +1,7 @@
 #pragma once
 #include <optional>
 #include <array>
+#include <string>
 #include <vector>
 
 #include "vulkan/vulkan.h"
@@ -348,7 +349,7 @@ namespace volcano
 		bool framebufferResized = false;
 
 		// 校验层
-		const std::vector<const char*> validationLayers = { "VK_LAYER_LUNARG_standard_validation" };
+		const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
 #ifdef NDEBUG
 		const bool enableValidationLayers = false;
 #else
