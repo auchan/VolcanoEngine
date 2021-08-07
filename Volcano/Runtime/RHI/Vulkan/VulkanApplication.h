@@ -307,6 +307,7 @@ namespace volcano
 
 		VkRenderPass renderPass = VK_NULL_HANDLE;
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+		VkPipelineLayout pipelineLayout2 = VK_NULL_HANDLE;
 		VkPipeline graphicsPipeline{};
 		VkPipeline graphicsPipeline2{};
 

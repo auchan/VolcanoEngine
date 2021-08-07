@@ -364,6 +364,7 @@ void VulkanApplication::createLogicDevice()
 	}
 
 	VkPhysicalDeviceFeatures deviceFeatures = {};
+	deviceFeatures.samplerAnisotropy = true;
 
 	VkDeviceCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -929,7 +930,7 @@ void VulkanApplication::createGraphicsPipeline2()
 	pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 	pipelineLayoutInfo.pushConstantRangeCount = 1;
 	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
-	if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, pAllocator, &pipelineLayout) != VK_SUCCESS)
+	if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, pAllocator, &pipelineLayout2) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
@@ -958,9 +959,9 @@ void VulkanApplication::createGraphicsPipeline2()
 	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = &dynamicStateInfo;
-	pipelineInfo.layout = pipelineLayout;
+	pipelineInfo.layout = pipelineLayout2;
 	pipelineInfo.renderPass = renderPass;
-	pipelineInfo.subpass = 0;
+	pipelineInfo.subpass = 1;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineInfo.basePipelineIndex = -1;
 
@@ -1789,8 +1790,8 @@ void VulkanApplication::updateFrame()
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
-	static bool show_demo_window = true;
-	static bool show_another_window = true;
+	static bool show_demo_window = false;
+	static bool show_another_window = false;
 	static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 	// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
 	if (show_demo_window)
@@ -1950,12 +1951,16 @@ void VulkanApplication::updateCommandBuffers()
 
 			vkCmdDrawIndexed(commandBuffers[i], meshBatch.count, 1, meshBatch.startIndex, 0, 0);
 		}
+
+		// Record Imgui Draw Data and draw funcs into command buffer
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[i]);
+		
 		// main pass end
 
 		// gui pass begin
 		vkCmdNextSubpass(commandBuffers[i], VK_SUBPASS_CONTENTS_INLINE);
-		// Record Imgui Draw Data and draw funcs into command buffer
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[i]);
+		// pipeline 2
+		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline2);
 		// gui pass end
 
 		vkCmdEndRenderPass(commandBuffers[i]);
@@ -2033,6 +2038,7 @@ void VulkanApplication::drawFrame()
 		throw std::runtime_error("failed to present swap chain image!");
 	}
 
+	vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
@@ -2075,12 +2081,22 @@ void VulkanApplication::cleanup()
 	cleanupSwapChain();
 
 	vkDestroySampler(device, textureSampler, pAllocator);
-	//vkDestroyImageView(device, textureImageView, pAllocator);
-	//vkDestroyImage(device, textureImage, pAllocator);
-	//vkFreeMemory(device, textureImageMemory, pAllocator);
+	for (VkImageView imageView : textureImageViews)
+	{
+		vkDestroyImageView(device, imageView, pAllocator);
+	}
+	for (VkImage image : textureImages)
+	{
+		vkDestroyImage(device, image, pAllocator);
+	}
+	for (VkDeviceMemory ImageMemory : textureImageMemories)
+	{
+		vkFreeMemory(device, ImageMemory, pAllocator);
+	}
 
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, pAllocator);
 	vkDestroyDescriptorPool(device, descriptorPool, pAllocator);
+	vkDestroyDescriptorPool(device, imGuiDescriptorPool, pAllocator);
 
 	vkDestroyBuffer(device, indexBuffer, pAllocator);
 	vkFreeMemory(device, indexBufferMemory, pAllocator);
@@ -2139,7 +2155,9 @@ void VulkanApplication::cleanupSwapChain()
 	vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
 	vkDestroyPipeline(device, graphicsPipeline, pAllocator);
+	vkDestroyPipeline(device, graphicsPipeline2, pAllocator);
 	vkDestroyPipelineLayout(device, pipelineLayout, pAllocator);
+	vkDestroyPipelineLayout(device, pipelineLayout2, pAllocator);
 	vkDestroyRenderPass(device, renderPass, pAllocator);
 
 	for (auto imageView : swapChainImageViews)
@@ -2187,7 +2205,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanApplication::debugCallback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData)
 {
-	std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT || messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+	{
+		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+	}
 	return VK_FALSE;
 }
 
