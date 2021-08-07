@@ -145,6 +145,11 @@ void VulkanApplication::setupImGui()
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+	ImFontConfig config;
+	config.MergeMode = true;
+	io.Fonts->AddFontFromFileTTF(AssetManager::getAssetPath("fonts/DroidSansMono.ttf").c_str(), 18.0f, nullptr, io.Fonts->GetGlyphRangesDefault());
+	io.Fonts->AddFontFromFileTTF(AssetManager::getAssetPath("fonts/DroidSansFallback.ttf").c_str(), 18.0f, &config, io.Fonts->GetGlyphRangesChineseFull());
+	io.Fonts->Build();
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
@@ -1439,7 +1444,7 @@ void VulkanApplication::loadModel(std::string dirname, std::string filename)
 
 void VulkanApplication::loadAssets()
 {
-	loadModel("models/yousa", "yousa_v1.2-Apose.obj");
+	loadModel("models/ying", "ying_m.obj");
 }
 
 
