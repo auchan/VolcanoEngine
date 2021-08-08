@@ -136,10 +136,12 @@ namespace volcano
 		void createRenderPass();
 
 		void createDescriptorSetLayout();
+		
+		void createDescriptorSetLayout_Skybox();
 
 		void createGraphicsPipeline();
 
-		void createGraphicsPipeline2();
+		void createGraphicsPipeline_Skybox();
 
 		VkShaderModule createShaderModule(const std::vector<char>& code) const;
 
@@ -161,17 +163,18 @@ namespace volcano
 		bool hasStencilComponent(VkFormat format);
 
 		VkImage createTextureImage(const std::string& texturePath);
+		VkImage createCubeTextureImage(const std::vector<std::string>& texturePaths);
 
 		void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-			VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+			VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, bool bCubemap = false);
 
-		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t baseArrayLayer = 0);
 
-		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t baseArrayLayer = 0);
 
-		VkImageView createTextureImageView(VkImage textureImage);
+		VkImageView createTextureImageView(VkImage textureImage, uint32_t layerCount = 1);
 
-		VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+		VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t layerCount = 1);
 
 		void createTextureSampler();
 
@@ -189,9 +192,9 @@ namespace volcano
 
 		void loadAssets();
 
-		void createVertexBuffer();
+		uint32_t createVertexBuffer(const std::vector<Vertex>& inVertices);
 
-		void createIndexBuffer();
+		uint32_t createIndexBuffer(const std::vector<uint32_t>& inIndices);
 
 		void createUniformBuffer();
 
@@ -264,8 +267,8 @@ namespace volcano
 
 		const char* appName = "Volcano Engine";
 		
-		const uint32_t WIDTH = 800;
-		const uint32_t HEIGHT = 600;
+		const uint32_t WIDTH = 1920;
+		const uint32_t HEIGHT = 1080;
 		const int MAX_FRAMES_IN_FLIGHT = 2;
 
 		// camera
@@ -280,8 +283,11 @@ namespace volcano
 		double deltaTime = 0.0f; // time between current frame and last frame
 		double lastFrame = 0.0f;
 
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
+		std::vector<Vertex> meshVertices;
+		std::vector<uint32_t> meshIndices;
+
+		std::vector<Vertex> skyboxVertices;
+		std::vector<uint32_t> skyboxIndices;
 
 		GLFWwindow* window = nullptr;
 		VkAllocationCallbacks* pAllocator = nullptr;
@@ -302,23 +308,28 @@ namespace volcano
 		std::vector<VkFramebuffer> swapChainFramebuffers;
 
 		VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+		VkDescriptorSetLayout descriptorSetLayout_Skybox = VK_NULL_HANDLE;
 		VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 		std::vector<VkDescriptorSet> descriptorSets;
 
 		VkRenderPass renderPass = VK_NULL_HANDLE;
 		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-		VkPipelineLayout pipelineLayout2 = VK_NULL_HANDLE;
+		VkPipelineLayout pipelineLayout_Skybox = VK_NULL_HANDLE;
 		VkPipeline graphicsPipeline{};
-		VkPipeline graphicsPipeline2{};
+		VkPipeline graphicsPipeline_Skybox{};
 
 		VkCommandPool commandPool{};
 		std::vector<VkCommandBuffer> commandBuffers;
 
 		// 顶点缓冲
-		VkBuffer vertexBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
-		VkBuffer indexBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
+		std::vector<VkBuffer> vertexBuffers;
+		std::vector<VkDeviceMemory> vertexBufferMemories;
+		std::vector<VkBuffer> indexBuffers;
+		std::vector<VkDeviceMemory> indexBufferMemories;
+		// VkBuffer vertexBuffer = VK_NULL_HANDLE;
+		// VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
+		// VkBuffer indexBuffer = VK_NULL_HANDLE;
+		// VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
 
 		// uniform缓冲
 		std::vector<VkBuffer> uniformBuffers;
@@ -335,6 +346,9 @@ namespace volcano
 		std::vector<VkDeviceMemory> textureImageMemories;
 		std::vector<VkImageView> textureImageViews;
 		VkSampler textureSampler{};
+
+		// Skybox
+		VkImageView skyboxImageView {};
 
 		// 深度图像
 		VkImage depthImage{};

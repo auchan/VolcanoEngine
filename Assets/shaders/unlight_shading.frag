@@ -20,14 +20,6 @@ layout(location = 3) in vec3 fragPos;
 
 layout(location = 0) out vec4 outColor;
 
-vec3 lightColor = vec3(1.0f, 1.0f, 1.0f);
-vec3 lightPos = vec3(0.0f, 0.0f, 0.0f);
-
-struct Material {
-  vec3 ambient;
-  vec3 diffuse;
-  float specular;
-  float shininess;
-} material;
-
-void main() { outColor = vec4(0.4, 0.8, 1.0, 0.5); }
+void main() {
+  outColor = vec4(texture(texSampler, fragTexCoord).rgb, 1.0);
+}

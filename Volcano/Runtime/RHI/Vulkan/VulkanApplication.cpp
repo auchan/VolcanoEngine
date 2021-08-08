@@ -77,8 +77,8 @@ struct UniformBufferObject
 };
 
 VulkanApplication::VulkanApplication()
-	: camera(glm::vec3(0.f, 10.f, 18.f)
-	         , coordinate::up, -180, 0)
+	: camera(glm::vec3(0.f, 10.f, -31.f)
+	         , coordinate::up, 180, 0)
 	  , swapChainImageFormat(VK_FORMAT_UNDEFINED)
 {
 }
@@ -120,6 +120,7 @@ void VulkanApplication::initVulkan()
 	createImageViews();
 	createRenderPass();
 	createDescriptorSetLayout();
+	createDescriptorSetLayout_Skybox();
 	createGraphicsPipeline();
 	createCommandPool();
 	createDepthResources();
@@ -128,8 +129,10 @@ void VulkanApplication::initVulkan()
 	//createTextureImage();
 	//createTextureImageView();
 	createTextureSampler();
-	createVertexBuffer();
-	createIndexBuffer();
+	createVertexBuffer(meshVertices);
+	createIndexBuffer(meshIndices);
+	createVertexBuffer(skyboxVertices);
+	createIndexBuffer(skyboxIndices);
 	createUniformBuffer();
 	createDescriptorPool();
 	createDescriptorSets();
@@ -652,10 +655,15 @@ void VulkanApplication::createDescriptorSetLayout()
 	}
 }
 
+void VulkanApplication::createDescriptorSetLayout_Skybox()
+{
+	// TODO
+}
+
 void VulkanApplication::createGraphicsPipeline()
 {
-	VkShaderModule vertShaderModule = createShaderModuleFromPath("shaders/bin/phong_shading_vert.spv");
-	VkShaderModule fragShaderModule = createShaderModuleFromPath("shaders/bin/blinn-phong_shading_frag.spv");
+	VkShaderModule vertShaderModule = createShaderModuleFromPath("shaders/bin/unlight_shading_vert.spv");
+	VkShaderModule fragShaderModule = createShaderModuleFromPath("shaders/bin/unlight_shading_frag.spv");
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -712,7 +720,7 @@ void VulkanApplication::createGraphicsPipeline()
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 	rasterizer.depthBiasConstantFactor = 0.0f;
 	rasterizer.depthBiasClamp = 0.0f;
@@ -814,13 +822,13 @@ void VulkanApplication::createGraphicsPipeline()
 	vkDestroyShaderModule(device, vertShaderModule, pAllocator);
 	vkDestroyShaderModule(device, fragShaderModule, pAllocator);
 
-	createGraphicsPipeline2();
+	createGraphicsPipeline_Skybox();
 }
 
-void VulkanApplication::createGraphicsPipeline2()
+void VulkanApplication::createGraphicsPipeline_Skybox()
 {
-	VkShaderModule vertShaderModule = createShaderModuleFromPath("shaders/bin/test_shading_vert.spv");
-	VkShaderModule fragShaderModule = createShaderModuleFromPath("shaders/bin/test_shading_frag.spv");
+	VkShaderModule vertShaderModule = createShaderModuleFromPath("shaders/bin/skybox_shading_vert.spv");
+	VkShaderModule fragShaderModule = createShaderModuleFromPath("shaders/bin/skybox_shading_frag.spv");
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -933,9 +941,9 @@ void VulkanApplication::createGraphicsPipeline2()
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;
 	pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-	pipelineLayoutInfo.pushConstantRangeCount = 1;
-	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
-	if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, pAllocator, &pipelineLayout2) != VK_SUCCESS)
+	pipelineLayoutInfo.pushConstantRangeCount = 0;
+	pipelineLayoutInfo.pPushConstantRanges = nullptr;
+	if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, pAllocator, &pipelineLayout_Skybox) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
@@ -943,7 +951,7 @@ void VulkanApplication::createGraphicsPipeline2()
 	VkPipelineDepthStencilStateCreateInfo depthStencil = {};
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil.depthTestEnable = VK_TRUE;
-	depthStencil.depthWriteEnable = VK_TRUE;
+	depthStencil.depthWriteEnable = VK_FALSE;
 	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.minDepthBounds = 0.0f;
@@ -964,13 +972,13 @@ void VulkanApplication::createGraphicsPipeline2()
 	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = &dynamicStateInfo;
-	pipelineInfo.layout = pipelineLayout2;
+	pipelineInfo.layout = pipelineLayout_Skybox;
 	pipelineInfo.renderPass = renderPass;
-	pipelineInfo.subpass = 1;
+	pipelineInfo.subpass = 0;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineInfo.basePipelineIndex = -1;
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, pAllocator, &graphicsPipeline2) !=
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, pAllocator, &graphicsPipeline_Skybox) !=
 		VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline!");
@@ -1143,9 +1151,69 @@ VkImage VulkanApplication::createTextureImage(const std::string& texturePath)
 	return textureImage;
 }
 
+VkImage VulkanApplication::createCubeTextureImage(const std::vector<std::string>& texturePaths)
+{
+	int texWidth, texHeight, texChannels;
+	{
+		stbi_uc* pixels = stbi_load(AssetManager::getAssetPath(texturePaths[0]).c_str(), &texWidth, &texHeight,
+							&texChannels, STBI_rgb_alpha);
+		stbi_image_free(pixels);
+	}
+
+	VkImage textureImage;
+	VkDeviceMemory textureImageMemory;
+
+	createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+				VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				textureImage, textureImageMemory, true);
+
+	textureImages.push_back(textureImage);
+	textureImageMemories.push_back(textureImageMemory);
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	const VkDeviceSize imageSize = texWidth * texHeight * 4;
+	createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
+				stagingBufferMemory);
+	
+	uint32_t imageIndex = 0;
+	for (const std::string& texturePath : texturePaths)
+	{
+		stbi_uc* pixels = stbi_load(AssetManager::getAssetPath(texturePath).c_str(), &texWidth, &texHeight,
+								&texChannels, STBI_rgb_alpha);
+		if (!pixels)
+		{
+			throw std::runtime_error("failed to load texture image!");
+		}
+
+		void* data;
+		vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+		memcpy(data, pixels, static_cast<size_t>(imageSize));
+		vkUnmapMemory(device, stagingBufferMemory);
+
+		stbi_image_free(pixels);
+
+		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageIndex);
+		copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth),
+						static_cast<uint32_t>(texHeight), imageIndex);
+		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, imageIndex);
+		
+		++imageIndex;
+	}
+
+	vkDestroyBuffer(device, stagingBuffer, pAllocator);
+	vkFreeMemory(device, stagingBufferMemory, pAllocator);
+
+	return textureImage;
+}
+
 void VulkanApplication::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
                                     VkImageUsageFlags usage,
-                                    VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
+                                    VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory,
+                                    bool bCubemap)
 {
 	VkImageCreateInfo imageInfo = {};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1154,14 +1222,14 @@ void VulkanApplication::createImage(uint32_t width, uint32_t height, VkFormat fo
 	imageInfo.extent.height = static_cast<uint32_t>(height);
 	imageInfo.extent.depth = 1;
 	imageInfo.mipLevels = 1;
-	imageInfo.arrayLayers = 1;
+	imageInfo.arrayLayers = bCubemap ? 6 : 1;
 	imageInfo.format = format;
 	imageInfo.tiling = tiling;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageInfo.usage = usage;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageInfo.flags = 0;
+	imageInfo.flags = bCubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 
 	if (vkCreateImage(device, &imageInfo, pAllocator, &image) != VK_SUCCESS)
 	{
@@ -1185,7 +1253,7 @@ void VulkanApplication::createImage(uint32_t width, uint32_t height, VkFormat fo
 }
 
 void VulkanApplication::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
-                                              VkImageLayout newLayout)
+                                              VkImageLayout newLayout, uint32_t baseArrayLayer)
 {
 	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1198,7 +1266,7 @@ void VulkanApplication::transitionImageLayout(VkImage image, VkFormat format, Vk
 	barrier.image = image;
 	barrier.subresourceRange.baseMipLevel = 0;
 	barrier.subresourceRange.levelCount = 1;
-	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.baseArrayLayer = baseArrayLayer;
 	barrier.subresourceRange.layerCount = 1;
 
 	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
@@ -1254,7 +1322,7 @@ void VulkanApplication::transitionImageLayout(VkImage image, VkFormat format, Vk
 	endSingleTimeCommands(commandBuffer);
 }
 
-void VulkanApplication::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+void VulkanApplication::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t baseArrayLayer)
 {
 	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1265,7 +1333,7 @@ void VulkanApplication::copyBufferToImage(VkBuffer buffer, VkImage image, uint32
 
 	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	region.imageSubresource.mipLevel = 0;
-	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.baseArrayLayer = baseArrayLayer;
 	region.imageSubresource.layerCount = 1;
 
 	region.imageOffset = {0, 0, 0};
@@ -1276,27 +1344,27 @@ void VulkanApplication::copyBufferToImage(VkBuffer buffer, VkImage image, uint32
 	endSingleTimeCommands(commandBuffer);
 }
 
-VkImageView VulkanApplication::createTextureImageView(VkImage textureImage)
+VkImageView VulkanApplication::createTextureImageView(VkImage textureImage, uint32_t layerCount)
 {
 	VkImageView textureImageView;
-	textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+	textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, layerCount);
 	textureImageViews.push_back(textureImageView);
 	return textureImageView;
 }
 
-VkImageView VulkanApplication::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
+VkImageView VulkanApplication::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t layerCount)
 {
 	VkImageViewCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	createInfo.image = image;
-	createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	createInfo.viewType = (layerCount == 6) ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
 	createInfo.format = format;
 
 	createInfo.subresourceRange.aspectMask = aspectFlags;
 	createInfo.subresourceRange.baseMipLevel = 0;
 	createInfo.subresourceRange.levelCount = 1;
 	createInfo.subresourceRange.baseArrayLayer = 0;
-	createInfo.subresourceRange.layerCount = 1;
+	createInfo.subresourceRange.layerCount = layerCount;
 
 	VkImageView imageView;
 	if (vkCreateImageView(device, &createInfo, pAllocator, &imageView) != VK_SUCCESS)
@@ -1358,7 +1426,7 @@ void VulkanApplication::loadModel(std::string dirname, std::string filename)
 
 	// Generate vertex buffer from ASSIMP scene data
 	float scale = 1.0f;
-	std::vector<Vertex>& vertexBuffer = vertices;
+	std::vector<Vertex>& vertexBuffer = meshVertices;
 
 	// Iterate through all meshes in the file and extract the vertex components
 	for (uint32_t m = 0; m < scene->mNumMeshes; m++)
@@ -1378,7 +1446,7 @@ void VulkanApplication::loadModel(std::string dirname, std::string filename)
 				               : glm::vec3(1.0f);
 
 			// Vulkan uses a right-handed NDC (contrary to OpenGL), so simply flip Y-Axis
-			//vertex.pos.y *= -1.0f;
+			vertex.pos.x *= -1.0f;
 
 			vertexBuffer.push_back(vertex);
 		}
@@ -1386,7 +1454,7 @@ void VulkanApplication::loadModel(std::string dirname, std::string filename)
 	//size_t vertexBufferSize = vertexBuffer.size() * sizeof(Vertex);
 
 	// Generate index buffer from ASSIMP scene data
-	std::vector<uint32_t>& indexBuffer = indices;
+	std::vector<uint32_t>& indexBuffer = meshIndices;
 	uint32_t startIndex = 0;
 	uint32_t indiceCount = 0;
 	std::unordered_map<std::string, VkImageView> imageViewMap;
@@ -1445,23 +1513,59 @@ void VulkanApplication::loadModel(std::string dirname, std::string filename)
 void VulkanApplication::loadAssets()
 {
 	loadModel("models/ying", "ying_m.obj");
+
+	// skybox
+	skyboxVertices = {
+		{ glm::vec3(-1.f, 1.f, -1.f), glm::vec3(), glm::vec3(), glm::vec2(0.f, 1.f) },
+		{ glm::vec3(1.f, 1.f, -1.f), glm::vec3(), glm::vec3(), glm::vec2(1.f, 1.f) },
+		{ glm::vec3(1.f, 1.f, 1.f), glm::vec3(), glm::vec3(), glm::vec2(1.f, 0.f) },
+		{ glm::vec3(-1.f, 1.f, 1.f), glm::vec3(), glm::vec3(), glm::vec2(0.f, 0.f) },
+		
+		{ glm::vec3(-1.f, -1.f, -1.f), glm::vec3(), glm::vec3(), glm::vec2(0.f, 1.f) },
+		{ glm::vec3(1.f, -1.f, -1.f), glm::vec3(), glm::vec3(), glm::vec2(1.f, 1.f) },
+		{ glm::vec3(1.f, -1.f, 1.f), glm::vec3(), glm::vec3(), glm::vec2(1.f, 0.f ) },
+		{ glm::vec3(-1.f, -1.f, 1.f), glm::vec3(), glm::vec3(), glm::vec2(0.f, 0.f) }
+	};
+
+	skyboxIndices = {
+		0, 1, 2,	0, 2, 3,	// posy
+		1, 5, 6,	1, 6, 2,	// posx
+		3, 2, 6,	3, 6, 7,	// posz
+		6, 5, 4,	6, 4, 7,	// negy
+		1, 0, 4,	1, 4, 5,	// negz
+		0, 3, 7,	0, 7, 4,	// negx
+	};
+
+	std::vector<std::string> cubemapImages = {
+		"textures/Maskonaive2/right.jpg",
+		"textures/Maskonaive2/left.jpg",
+		"textures/Maskonaive2/top.jpg",
+		"textures/Maskonaive2/bottom.jpg",
+		"textures/Maskonaive2/front.jpg",
+		"textures/Maskonaive2/back.jpg"
+	};
+	const VkImage textureImage = createCubeTextureImage(cubemapImages);
+	skyboxImageView = createTextureImageView(textureImage, cubemapImages.size());
 }
 
 
-void VulkanApplication::createVertexBuffer()
+uint32_t VulkanApplication::createVertexBuffer(const std::vector<Vertex>& inVertices)
 {
 	VkBuffer stagingBuffer = VK_NULL_HANDLE;
 	VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
 
-	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+	VkDeviceSize bufferSize = sizeof(inVertices[0]) * inVertices.size();
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 	             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
 	             stagingBufferMemory);
 
 	void* data;
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
+	memcpy(data, inVertices.data(), static_cast<size_t>(bufferSize));
 	vkUnmapMemory(device, stagingBufferMemory);
+
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMemory;
 
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 	             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer,
@@ -1469,24 +1573,32 @@ void VulkanApplication::createVertexBuffer()
 
 	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
 
+	vertexBuffers.push_back(vertexBuffer);
+	vertexBufferMemories.push_back(vertexBufferMemory);
+
 	vkDestroyBuffer(device, stagingBuffer, pAllocator);
 	vkFreeMemory(device, stagingBufferMemory, pAllocator);
+
+	return vertexBuffers.size() - 1;
 }
 
-void VulkanApplication::createIndexBuffer()
+uint32_t VulkanApplication::createIndexBuffer(const std::vector<uint32_t>& inIndices)
 {
 	VkBuffer stagingBuffer = VK_NULL_HANDLE;
 	VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
 
-	const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+	const VkDeviceSize bufferSize = sizeof(inIndices[0]) * inIndices.size();
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 	             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
 	             stagingBufferMemory);
 
 	void* data;
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
+	memcpy(data, inIndices.data(), static_cast<size_t>(bufferSize));
 	vkUnmapMemory(device, stagingBufferMemory);
+
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
 
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 	             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer,
@@ -1494,8 +1606,13 @@ void VulkanApplication::createIndexBuffer()
 
 	copyBuffer(stagingBuffer, indexBuffer, bufferSize);
 
+	indexBuffers.push_back(indexBuffer);
+	indexBufferMemories.push_back(indexBufferMemory);
+
 	vkDestroyBuffer(device, stagingBuffer, pAllocator);
 	vkFreeMemory(device, stagingBufferMemory, pAllocator);
+
+	return indexBuffers.size() - 1;
 }
 
 void VulkanApplication::createUniformBuffer()
@@ -1822,6 +1939,15 @@ void VulkanApplication::updateFrame()
 		ImGui::Text("counter = %d", counter);
 
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		ImGui::InputFloat3("Camera position", &camera.Position.x); 
+		if (ImGui::SliderFloat("Camera yaw", &camera.Yaw, -180.0f, 180.0f))
+		{
+			camera.UpdateCameraVectors();
+		}
+		if(ImGui::SliderFloat("Camera pitch", &camera.Pitch, -89.0f, 89.0f))
+		{
+			camera.UpdateCameraVectors();
+		}
 		ImGui::End();
 	}
 
@@ -1881,15 +2007,80 @@ void VulkanApplication::updateCommandBuffers()
 
 		// main pass begin
 		vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+		
+		// skybox pass begin
+		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_Skybox);
+		{
+			VkBuffer vertexBuffers[] = { this->vertexBuffers[1] };
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffers[1], 0, VK_INDEX_TYPE_UINT32);
+			
+			VkDescriptorBufferInfo bufferInfo = {};
+			bufferInfo.buffer = uniformBuffers[i];
+			bufferInfo.offset = 0;
+			bufferInfo.range = offsetof(UniformBufferObject, light);
 
-		VkBuffer vertexBuffers[] = { vertexBuffer };
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+			VkDescriptorImageInfo imageInfo = {};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo.imageView = skyboxImageView;
+			imageInfo.sampler = textureSampler;
+
+			VkDescriptorBufferInfo lightInfo = {};
+			lightInfo.buffer = uniformBuffers[i];
+			lightInfo.offset = offsetof(UniformBufferObject, light);
+			lightInfo.range = sizeof(Light);
+
+			std::array<VkWriteDescriptorSet, 3> descriptorWriters = {};
+			uint32_t index = 0;
+			VkWriteDescriptorSet* pDescriptorWriter = &descriptorWriters[index];
+			pDescriptorWriter->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			pDescriptorWriter->dstSet = descriptorSets[i];
+			pDescriptorWriter->dstBinding = index;
+			pDescriptorWriter->dstArrayElement = 0;
+			pDescriptorWriter->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			pDescriptorWriter->descriptorCount = 1;
+			pDescriptorWriter->pBufferInfo = &bufferInfo;
+
+			pDescriptorWriter = &descriptorWriters[++index];
+			pDescriptorWriter->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			pDescriptorWriter->dstSet = descriptorSets[i];
+			pDescriptorWriter->dstBinding = index;
+			pDescriptorWriter->dstArrayElement = 0;
+			pDescriptorWriter->descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			pDescriptorWriter->descriptorCount = 1;
+			pDescriptorWriter->pImageInfo = &imageInfo;
+
+			pDescriptorWriter = &descriptorWriters[++index];
+			pDescriptorWriter->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			pDescriptorWriter->dstSet = descriptorSets[i];
+			pDescriptorWriter->dstBinding = index;
+			pDescriptorWriter->dstArrayElement = 0;
+			pDescriptorWriter->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			pDescriptorWriter->descriptorCount = 1;
+			pDescriptorWriter->pBufferInfo = &lightInfo;
+
+			vkCmdPushDescriptorSetKHR(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_Skybox, PUSH_SET_INDEX,
+				static_cast<uint32_t>(descriptorWriters.size()), descriptorWriters.data());
+		}
+		vkCmdDrawIndexed(commandBuffers[i], 36, 1, 0, 0, 0);
+		// skybox pass end
+		
+		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+		{
+			VkBuffer vertexBuffers[] = { this->vertexBuffers[0] };
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffers[0], 0, VK_INDEX_TYPE_UINT32);
+		}
+
+		// VkBuffer vertexBuffers[] = { vertexBuffer };
+		// VkDeviceSize offsets[] = { 0 };
+		// vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+		// vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 		//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
 		//&descriptorSets[i], 0, nullptr);
-
+		// std::cout << camera.Position.x << " " << camera.Position.y << " " << camera.Position.z << std::endl; 
 		vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
 			sizeof(camera.Position), &camera.Position);
 
@@ -1961,13 +2152,7 @@ void VulkanApplication::updateCommandBuffers()
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[i]);
 		
 		// main pass end
-
-		// gui pass begin
 		vkCmdNextSubpass(commandBuffers[i], VK_SUBPASS_CONTENTS_INLINE);
-		// pipeline 2
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline2);
-		// gui pass end
-
 		vkCmdEndRenderPass(commandBuffers[i]);
 
 		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
@@ -2055,15 +2240,24 @@ void VulkanApplication::updateUniformBuffer(uint32_t currentImage)
 	time = 0;
 
 	UniformBufferObject ubo = {};
-	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	//ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	ubo.model = glm::mat4(1.0f);
 	// ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * ubo.model;
 	ubo.view = camera.GetViewMatrix();
 	ubo.proj = glm::perspective(glm::radians(camera.Zoom), swapChainExtent.width / (float)swapChainExtent.height,
-	                            0.1f, 100.0f);
-	ubo.proj[1][1] *= -1;
+	                            0.1f, 200.0f);
+
+	ubo.proj = glm::scale(glm::mat4(1.0f), glm::vec3(1, 1, -1)) * glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * ubo.proj;
+	//ubo.proj[1][1] *= -1;
 	ubo.light.pos = glm::vec3(10.0f, 10.0f, 20.0f);
 	ubo.light.ambient = glm::vec3(1.0f, 1.0f, 1.0f);
 	ubo.light.diffuse = glm::vec3(0.0f, 1.0f, 0.0f);
+
+	glm::vec4 Pos(0, 0, 0, 1); 
+	glm::vec4 NewPos1 = ubo.view * Pos;
+	glm::vec4 NewPos = ubo.proj * ubo.view * Pos;
+	NewPos = NewPos / NewPos.w;
+	//std::cout << NewPos.x << " " << NewPos.y << " " << NewPos.z << std::endl;
 
 	void* data;
 	vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
@@ -2103,11 +2297,25 @@ void VulkanApplication::cleanup()
 	vkDestroyDescriptorPool(device, descriptorPool, pAllocator);
 	vkDestroyDescriptorPool(device, imGuiDescriptorPool, pAllocator);
 
-	vkDestroyBuffer(device, indexBuffer, pAllocator);
-	vkFreeMemory(device, indexBufferMemory, pAllocator);
+	// Index buffers
+	for (VkBuffer indexBuffer : indexBuffers)
+	{
+		vkDestroyBuffer(device, indexBuffer, pAllocator);	
+	}
+	for (VkDeviceMemory indexBufferMemory : indexBufferMemories)
+	{
+		vkFreeMemory(device, indexBufferMemory, pAllocator);	
+	}
 
-	vkDestroyBuffer(device, vertexBuffer, pAllocator);
-	vkFreeMemory(device, vertexBufferMemory, pAllocator);
+	// Vertex buffers
+	for (VkBuffer vertexBuffer : vertexBuffers)
+	{
+		vkDestroyBuffer(device, vertexBuffer, pAllocator);	
+	}
+	for (VkDeviceMemory vertexBufferMemory : vertexBufferMemories)
+	{
+		vkFreeMemory(device, vertexBufferMemory, pAllocator);	
+	}
 
 	for (size_t i = 0; i < uniformBuffers.size(); ++i)
 	{
@@ -2160,9 +2368,9 @@ void VulkanApplication::cleanupSwapChain()
 	vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
 	vkDestroyPipeline(device, graphicsPipeline, pAllocator);
-	vkDestroyPipeline(device, graphicsPipeline2, pAllocator);
+	vkDestroyPipeline(device, graphicsPipeline_Skybox, pAllocator);
 	vkDestroyPipelineLayout(device, pipelineLayout, pAllocator);
-	vkDestroyPipelineLayout(device, pipelineLayout2, pAllocator);
+	vkDestroyPipelineLayout(device, pipelineLayout_Skybox, pAllocator);
 	vkDestroyRenderPass(device, renderPass, pAllocator);
 
 	for (auto imageView : swapChainImageViews)
